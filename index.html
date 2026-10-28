@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071b2b"><meta name="description" content="Peta referensi area potensial GoCar Jakarta Barat">
+<link rel="manifest" href="manifest.webmanifest">
+<title>GoCar Booster — Peta Referensi</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#071b2b;--panel:#102b40;--text:#f4f8fb;--muted:#a9c0d0;--green:#00b14f;--red:#ff4b4b;--yellow:#ffc928;--blue:#55aaff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,sans-serif}header{padding:14px 16px;background:#0b263a;display:flex;justify-content:space-between;align-items:center;gap:12px}header b{font-size:19px}header small{color:var(--muted);display:block}button{border:0;border-radius:12px;padding:11px 13px;font-weight:700;background:var(--green);color:white;font-size:14px}button.secondary{background:#25465d}button:disabled{opacity:.5}.wrap{padding:12px;max-width:760px;margin:auto}.status{background:#17364b;border-radius:14px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;align-items:center}.status small{color:var(--muted)}#map{height:53vh;min-height:350px;border-radius:16px;overflow:hidden;border:1px solid #315267}.panel{background:var(--panel);border-radius:15px;padding:14px;margin-top:12px}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.spot{border-top:1px solid #29485d;padding:12px 0;display:flex;gap:10px;align-items:center}.spot:first-of-type{border-top:0}.spot .info{flex:1}.spot b{display:block}.spot small{color:var(--muted)}.tag{font-size:11px;border-radius:999px;padding:5px 8px;background:#25465d;white-space:nowrap}.tag.high{background:#7b2929}.tag.mid{background:#705b14}.note{font-size:12px;line-height:1.5;color:var(--muted)}.metric{display:flex;justify-content:space-between;margin:6px 0}.footer{font-size:11px;color:#93aebe;text-align:center;padding:16px}
+</style></head>
+<body>
+<header><div><b>🚗 GoCar Booster</b><small>Peta referensi Jakarta Barat</small></div><button id="locBtn">◎ Lokasi saya</button></header>
+<div class="wrap">
+<div class="status"><div><b id="live">Memuat waktu...</b><br><small id="locStatus">Lokasi belum diaktifkan</small></div><button class="secondary" id="refreshBtn">↻ Perbarui</button></div>
+<div id="map"></div>
+<div class="legend"><span><i class="dot" style="background:#ff4b4b"></i>Potensi referensi tinggi</span><span><i class="dot" style="background:#ffc928"></i>Sedang</span><span><i class="dot" style="background:#55aaff"></i>Area lain</span></div>
+<div class="panel"><b>Area referensi di sekitar Jakarta Barat</b><div id="spots"></div></div>
+<div class="panel"><b>Kenapa area ini ditampilkan?</b><p class="note">Estimasi dibuat dari jenis lokasi (terminal, bandara, pusat belanja, kawasan perkantoran) dan jam umum aktivitas. Ini bukan data permintaan/order Gojek secara langsung. Kondisi aktual bisa berbeda; selalu ikuti tampilan aplikasi Driver dan aturan titik jemput.</p><div class="metric"><span>Jam perangkat</span><b id="clock">--:--:--</b></div><div class="metric"><span>Pembaruan terakhir</span><b id="updated">—</b></div></div>
+<div class="panel"><b>Catat kondisi lapangan</b><p class="note">Catatan tersimpan di HP ini saja. Gunakan untuk membandingkan lokasi dan jam yang benar-benar menghasilkan order.</p><div class="row"><input id="noteInput" placeholder="Contoh: Kalideres ramai jam 18.30" style="min-width:180px;padding:12px;border-radius:10px;border:0"><button id="saveNote">Simpan catatan</button></div><div id="notes"></div><button class="secondary" id="exportBtn" style="margin-top:10px;width:100%">Ekspor catatan CSV</button></div>
+</div><div class="footer">Peta dasar © OpenStreetMap • Data peta memerlukan internet • Tidak terhubung ke sistem internal Gojek</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const spots=[
+{name:"Bandara Soekarno-Hatta",lat:-6.1275,lon:106.6537,type:"Bandara",base:3,why:"Perjalanan bandara dan hotel; patuhi zona resmi jemput."},
+{name:"Terminal Kalideres",lat:-6.1364,lon:106.7047,type:"Terminal",base:3,why:"Perpindahan penumpang dan koneksi angkutan."},
+{name:"Daan Mogot / Pesing",lat:-6.1607,lon:106.7275,type:"Koridor jalan",base:2,why:"Koridor komuter; peluang berubah sesuai jam dan kemacetan."},
+{name:"Green Lake City",lat:-6.1770,lon:106.7002,type:"Kawasan hunian",base:2,why:"Kawasan hunian dan tempat makan; cek permintaan aktual."},
+{name:"Puri Indah",lat:-6.1895,lon:106.7388,type:"Mal & perkantoran",base:3,why:"Pusat belanja, kantor, dan restoran."},
+{name:"Grogol / Central Park",lat:-6.1667,lon:106.7900,type:"Kampus & mal",base:3,why:"Aktivitas kampus, mal, dan transit."},
+{name:"Taman Anggrek",lat:-6.1784,lon:106.7907,type:"Pusat belanja",base:2,why:"Aktivitas mal; peluang tergantung hari dan jam."},
+{name:"Cengkareng / Rawa Buaya",lat:-6.1510,lon:106.7140,type:"Permukiman",base:2,why:"Permukiman dan koridor komuter."}
+];
+const map=L.map('map').setView([-6.165,106.735],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+let userMarker=null, circles=[], markers=[];
+function level(s){const h=new Date().getHours();let n=s.base;if((h>=6&&h<=9)||(h>=16&&h<=20))n+=1;if(h>=22||h<5)n-=1;return Math.max(1,Math.min(3,n))}
+function label(n){return n>=3?'POTENSI REFERENSI TINGGI':n===2?'POTENSI SEDANG':'POTENSI LEBIH RENDAH'}
+function render(){
+ circles.forEach(x=>map.removeLayer(x));markers.forEach(x=>map.removeLayer(x));circles=[];markers=[];
+ spots.forEach(s=>{let n=level(s),color=n>=3?'#ff4b4b':n===2?'#ffc928':'#55aaff';
+ circles.push(L.circle([s.lat,s.lon],{radius:n>=3?950:n===2?650:400,color,fillColor:color,fillOpacity:.22,weight:2}).addTo(map));
+ let m=L.marker([s.lat,s.lon]).addTo(map).bindPopup('<b>'+s.name+'</b><br>'+label(n)+'<br>'+s.why+'<br><button onclick="goTo('+s.lat+','+s.lon+')">Buka arah</button>');markers.push(m)});
+ document.getElementById('spots').innerHTML=spots.map((s,i)=>{let n=level(s);return '<div class="spot"><div class="info"><b>'+s.name+'</b><small>'+s.type+' • '+s.why+'</small></div><span class="tag '+(n>=3?'high':n===2?'mid':'')+'">'+label(n)+'</span><button class="secondary" onclick="focusSpot('+i+')">Peta</button></div>'}).join('');
+ document.getElementById('updated').textContent=new Date().toLocaleTimeString('id-ID');
+}
+window.focusSpot=i=>{map.setView([spots[i].lat,spots[i].lon],14);markers[i].openPopup()};
+window.goTo=(lat,lon)=>window.open('https://www.google.com/maps/dir/?api=1&destination='+lat+','+lon,'_blank');
+function tick(){let d=new Date();document.getElementById('clock').textContent=d.toLocaleTimeString('id-ID');document.getElementById('live').textContent=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short'})+' • '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});}
+document.getElementById('locBtn').onclick=()=>{if(!navigator.geolocation){alert('Browser tidak mendukung lokasi.');return}navigator.geolocation.getCurrentPosition(p=>{let ll=[p.coords.latitude,p.coords.longitude];if(userMarker)map.removeLayer(userMarker);userMarker=L.marker(ll).addTo(map).bindPopup('Lokasi HP Anda').openPopup();map.setView(ll,14);document.getElementById('locStatus').textContent='Lokasi HP berhasil dibaca';},e=>{document.getElementById('locStatus').textContent='Lokasi tidak tersedia; izinkan lokasi pada Chrome.'},{enableHighAccuracy:true,timeout:12000});};
+document.getElementById('refreshBtn').onclick=()=>{tick();render();};
+const KEY='gcb_notes_v2';function loadNotes(){let a=JSON.parse(localStorage.getItem(KEY)||'[]');document.getElementById('notes').innerHTML=a.map(x=>'<p class="note">• '+x.t+' — '+x.text.replaceAll('<','&lt;')+'</p>').join('')||'<p class="note">Belum ada catatan.</p>'}
+document.getElementById('saveNote').onclick=()=>{let v=document.getElementById('noteInput').value.trim();if(!v)return;let a=JSON.parse(localStorage.getItem(KEY)||'[]');a.unshift({t:new Date().toLocaleString('id-ID'),text:v});localStorage.setItem(KEY,JSON.stringify(a.slice(0,100)));document.getElementById('noteInput').value='';loadNotes()};
+document.getElementById('exportBtn').onclick=()=>{let a=JSON.parse(localStorage.getItem(KEY)||'[]');let csv='Waktu,Catatan\\n'+a.map(x=>'"'+x.t.replaceAll('"','""')+'","'+x.text.replaceAll('"','""')+'"').join('\\n');let blob=new Blob([csv],{type:'text/csv'}),url=URL.createObjectURL(blob),aTag=document.createElement('a');aTag.href=url;aTag.download='catatan-gocar.csv';aTag.click();URL.revokeObjectURL(url)};
+tick();render();loadNotes();setInterval(tick,1000);setInterval(render,60000);
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script></body></html>
